@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { collaboratorTable } from "@/db/schema";
-import { createHttpError, toErrorResponse } from "@/lib/api-error";
+import { toErrorResponse } from "@/lib/api-error";
+import { assertCronSecret } from "@/lib/cron-auth";
 import { resolveRepoAccessViaApp } from "@/lib/sync/repo-access-app";
 import { addManagedCollaborator, removeManagedCollaborator } from "@/lib/sync/collaborator-sync";
 import { fetchContributorAuth } from "@/lib/sync/d1-contributors";
@@ -24,17 +25,6 @@ export const maxDuration = 60;
 
 const DEFAULT_OWNER = "micawoken";
 const DEFAULT_REPO = "entrusting-devilish-fish";
-
-const assertCronSecret = (request: Request) => {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    throw createHttpError("Cron is not configured (CRON_SECRET unset).", 503);
-  }
-  const header = request.headers.get("authorization") ?? "";
-  if (header !== `Bearer ${expected}`) {
-    throw createHttpError("Unauthorized.", 401);
-  }
-};
 
 const reconcile = async (request: Request) => {
   try {

@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/sync-cms-access",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/keepalive",
+      "schedule": "0 18 * * *"
     }
   ]
 }

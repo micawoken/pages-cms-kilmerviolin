@@ -1,0 +1,32 @@
+name: Supabase keep-alive
+
+# Runs a trivial `SELECT 1` against the Supabase Postgres that backs Pages CMS so the free-tier
+# project registers activity and is not auto-paused after its idle window. This is independent of
+# Vercel (and of the sync-cms-access cron), so it keeps the database warm even if a Vercel deploy is
+# paused or the sync cron is failing upstream of its own DB read.
+#
+# Requires a repository secret named SUPABASE_DB_URL holding the Supabase *pooler* connection string
+# (Project Settings -> Database -> Connection string -> URI, with `?sslmode=require`).
+#
+# NOTE: GitHub disables scheduled workflows after ~60 days of no repository activity. If the repo
+# goes quiet, re-enable this workflow (or push any commit) to resume the schedule.
+
+on:
+  schedule:
+    # every 3 days at 07:00 UTC — comfortably inside the pause window
+    - cron: "0 7 */3 * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "SUPABASE_DB_URL secret is not set." >&2
+            exit 1
+          fi
+          psql "$SUPABASE_DB_URL" -At -c "select 1;"

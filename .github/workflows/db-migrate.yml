@@ -1,0 +1,40 @@
+name: DB migrate
+
+# Applies Drizzle migrations to Supabase from a reliable CI runner instead of inside the Vercel
+# build. The Vercel build runners have flaky DB egress (IPv4/SSL), and the build itself does not
+# need the database — coupling `next build` to a live migration only added a failure mode. Runs only
+# when a migration or the schema actually changes (a no-op migrate is skipped entirely).
+#
+# Requires repository secret SUPABASE_DB_URL = the Supabase *session pooler* connection string
+# (host `...pooler.supabase.com`, port 5432) including `?sslmode=require`. Migrations need a session
+# connection; the transaction pooler (6543) cannot run them. Use the same value for Vercel's runtime
+# DATABASE_URL — the app's postgres-js client uses prepared statements, which also require a session
+# connection.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "db/migrations/**"
+      - "db/schema.ts"
+  workflow_dispatch: {}
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "SUPABASE_DB_URL secret is not set." >&2
+            exit 1
+          fi
+          npm run db:migrate
